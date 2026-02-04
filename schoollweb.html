@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>St. Charles Lwanga School</title>
+<style>
+body { font-family: Arial; margin:0; background:#f0f4f8; color:#03396c; }
+header { background:#005fa3; color:white; padding:40px 20px; text-align:center; }
+nav { background:#03396c; padding:12px; text-align:center; }
+nav a { color:white; margin:0 18px; text-decoration:none; font-weight:bold; font-size:16px; }
+nav a:hover { color:#00aaff; }
+section { padding:50px 20px; max-width:900px; margin:auto; background:white; margin-bottom:20px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+h2 { color:#005fa3; }
+footer { background:#03396c; color:white; text-align:center; padding:20px; font-size:14px; }
+#adminLogin, #adminPanel { display:none; }
+.admin-box { background:white; padding:25px; max-width:400px; margin:60px auto; border-radius:8px; box-shadow:0 3px 10px rgba(0,0,0,0.15); text-align:center; }
+input, button, textarea { width:100%; padding:12px; margin:10px 0; border-radius:4px; border:1px solid #ccc; }
+input:focus, textarea:focus { border-color:#005fa3; outline:none; }
+button { background:#005fa3; color:white; border:none; cursor:pointer; font-weight:bold; font-size:16px; }
+button:hover { background:#03396c; }
+img, video { margin:10px; border-radius:4px; }
+ul { padding-left:20px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>St. Charles Lwanga School</h1>
+  <p>Inspiring Excellence & Character</p>
+</header>
+
+<nav>
+  <a href="#about">About</a>
+  <a href="#programs">Programs</a>
+  <a href="#contact">Contact</a>
+  <a href="#community">Community</a>
+  <a href="#" onclick="showAdminLogin()">Admin</a>
+</nav>
+
+<section id="about">
+  <h2>About Us</h2>
+  <p id="aboutContent">Loading...</p>
+</section>
+
+<section id="programs">
+  <h2>Programs</h2>
+  <ul id="programsList">Loading...</ul>
+</section>
+
+<section id="contact">
+  <h2>Contact</h2>
+  <p>Email: info@stcharleslwanga.ac.ke</p>
+  <p>Phone: +254 700 000 000</p>
+  <p>Address: St. Charles Lwanga Rd, Kenya</p>
+</section>
+
+<section id="community">
+  <h2>Community Chat</h2>
+  <p>Share your thoughts. Only admin sees your name.</p>
+  <input type="text" id="chatName" placeholder="Your Name (optional)">
+  <textarea id="chatInput" rows="3" style="width:100%" placeholder="Type your message here..."></textarea>
+  <button onclick="postMessage()">Post Message</button>
+
+  <h4>Messages:</h4>
+  <ul id="chatMessages" style="list-style:none; padding-left:0;"></ul>
+</section>
+
+<footer>© 2026 St. Charles Lwanga School</footer>
+
+<!-- ADMIN LOGIN -->
+<div id="adminLogin" class="admin-box">
+  <h3>Administrator Login</h3>
+  <input type="email" id="adminEmail" placeholder="Email">
+  <input type="password" id="adminPass" placeholder="Password">
+  <button onclick="adminLogin()">Login</button>
+  <p id="adminError" style="color:red;"></p>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="adminPanel" class="admin-box">
+  <h3>Welcome, Qlavor 👋</h3>
+
+  <h4>Edit About Section</h4>
+  <textarea id="aboutEdit" rows="3" style="width:100%"></textarea>
+  <button onclick="updateAbout()">Save About</button>
+
+  <h4>Edit Programs</h4>
+  <textarea id="programsEdit" rows="3" style="width:100%" placeholder="Separate programs by commas"></textarea>
+  <button onclick="updatePrograms()">Save Programs</button>
+
+  <h4>Upload Media & Documents</h4>
+  <input type="file" id="fileInput" multiple>
+  <button onclick="uploadFiles()">Upload</button>
+  <div id="uploadPreview"></div>
+
+  <button onclick="adminLogout()">Logout</button>
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+
+<script>
+// 🔹 Firebase config
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_MESSAGING_ID",
+  appId: "YOUR_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
+const ADMIN_EMAIL = "qlavor@example.com"; // replace with your admin email
+
+// -------------------- ADMIN LOGIN --------------------
+function showAdminLogin() { document.getElementById('adminLogin').style.display='block'; }
+
+function adminLogin() {
+  const email = document.getElementById('adminEmail').value;
+  const pass = document.getElementById('adminPass').value;
+  auth.signInWithEmailAndPassword(email, pass)
+    .then(user => {
+      if(email === ADMIN_EMAIL) {
+        localStorage.setItem('adminLoggedIn','true');
+        document.getElementById('adminLogin').style.display='none';
+        document.getElementById('adminPanel').style.display='block';
+        loadContent();
+      } else { auth.signOut(); alert("Not authorized"); }
+    })
+    .catch(e => document.getElementById('adminError').innerText = e.message);
+}
+
+function adminLogout() {
+  auth.signOut();
+  localStorage.removeItem('adminLoggedIn');
+  document.getElementById('adminPanel').style.display='none';
+}
+
+// -------------------- WEBSITE CONTENT --------------------
+function loadContent() {
+  db.collection('website').doc('content').get().then(doc => {
+    if(doc.exists){
+      document.getElementById('aboutContent').innerText = doc.data().about || '';
+      const programs = doc.data().programs || [];
+      const ul = document.getElementById('programsList');
+      ul.innerHTML = '';
+      programs.forEach(p => { const li = document.createElement('li'); li.innerText=p; ul.appendChild(li); });
+    }
+  });
+}
+
+function updateAbout() {
+  const text = document.getElementById('aboutEdit').value;
+  db.collection('website').doc('content').set({about:text},{merge:true});
+  loadContent();
+}
+
+function updatePrograms() {
+  const text = document.getElementById('programsEdit').value.split(',').map(t=>t.trim());
+  db.collection('website').doc('content').set({programs:text},{merge:true});
+  loadContent();
+}
+
+// -------------------- FILE UPLOAD --------------------
+function uploadFiles() {
+  const input = document.getElementById('fileInput');
+  const preview = document.getElementById('uploadPreview');
+  preview.innerHTML = '';
+  for(let i=0;i<input.files.length;i++){
+    const file = input.files[i];
+    const storageRef = storage.ref('uploads/'+file.name);
+    storageRef.put(file).then(snapshot=>{
+      snapshot.ref.getDownloadURL().then(url=>{
+        if(file.type.startsWith('image/')){
+          const img = document.createElement('img'); img.src=url; img.style.width='150px'; preview.appendChild(img);
+        } else if(file.type.startsWith('video/')){
+          const video = document.createElement('video'); video.src=url; video.controls=true; video.style.width='250px'; preview.appendChild(video);
+        } else {
+          const link = document.createElement('a'); link.href=url; link.innerText='Download: '+file.name; link.download=file.name; link.style.display='block'; preview.appendChild(link);
+        }
+      });
+    });
+  }
+}
+
+// -------------------- COMMUNITY CHAT --------------------
+const chatCollection = db.collection('communityChat');
+
+function postMessage() {
+  const msg = document.getElementById('chatInput').value.trim();
+  const name = document.getElementById('chatName').value.trim() || "Anonymous";
+  if(!msg) return alert("Enter a message");
+  chatCollection.add({
+    message: msg,
+    sender: name,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(() => {
+    document.getElementById('chatInput').value='';
+    document.getElementById('chatName').value='';
+  });
+}
+
+chatCollection.orderBy('timestamp','desc').onSnapshot(snapshot => {
+  const list = document.getElementById('chatMessages');
+  list.innerHTML='';
+  snapshot.forEach(doc => {
+    const data = doc.data();
+    const li = document.createElement('li');
+    if(localStorage.getItem('adminLoggedIn')==='true'){
+      li.innerHTML = `<strong>${data.sender}:</strong> ${data.message} 
+                      <button onclick="deleteMessage('${doc.id}')">Delete</button>`;
+    } else {
+      li.innerText = data.message;
+    }
+    list.appendChild(li);
+  });
+});
+
+function deleteMessage(id){
+  if(localStorage.getItem('adminLoggedIn')==='true'){
+    chatCollection.doc(id).delete();
+  }
+}
+
+// Auto-load content for visitors
+loadContent();
+</script>
+
+</body>
+</html>
